@@ -51,8 +51,13 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
+
+  // modify here for lazy allocate heap
+  myproc()->sz = addr + n;
+  /*
   if(growproc(n) < 0)
     return -1;
+  */
   return addr;
 }
 
