@@ -53,7 +53,13 @@ sys_sbrk(void)
   addr = myproc()->sz;
 
   // modify here for lazy allocate heap
-  myproc()->sz = addr + n;
+  if (n > 0) {
+      myproc()->sz = addr + n;
+  } else { // handle for decrease bytes, should occur immediately, because more mem available
+      if(growproc(n) < 0)
+        return -1;
+  }
+
   /*
   if(growproc(n) < 0)
     return -1;
