@@ -14,6 +14,7 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
+extern void handle_alarm(struct trapframe *tf); // used to handle alarm
 int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
 
 void
@@ -57,6 +58,9 @@ trap(struct trapframe *tf)
       release(&tickslock);
     }
     lapiceoi();
+    if(myproc() != 0 && (tf->cs & 3) == 3) { // timer int from user
+        handle_alarm(tf);
+    }
     break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();

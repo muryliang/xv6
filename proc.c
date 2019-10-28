@@ -112,6 +112,9 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  // not handling signal
+  p->sighandling = 0;
+
   return p;
 }
 
