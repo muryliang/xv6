@@ -57,10 +57,13 @@ trap(struct trapframe *tf)
       wakeup(&ticks);
       release(&tickslock);
     }
-    lapiceoi();
-    if(myproc() != 0 && (tf->cs & 3) == 3) { // timer int from user
+
+    // handle alarm is current process has alarm set
+    if(myproc() != 0 && myproc()->alarmticks != 0 && (tf->cs & 3) == 3) { // timer int from user
         handle_alarm(tf);
     }
+
+    lapiceoi();
     break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();

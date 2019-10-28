@@ -143,8 +143,6 @@ sys_alarm(void) {
  */
 void handle_alarm(struct trapframe *tf) {
     // how to handle alarm here
-    // 
-    cprintf("in handle alarm, origin eip is %x\n", tf->eip);
     int ticks0; 
     acquire(&tickslock);
     ticks0 = ticks;
@@ -157,6 +155,7 @@ void handle_alarm(struct trapframe *tf) {
         // still doing handler or not yet time to handle
         return;
     }
+    myproc()->lastticks = ticks0;
 
     // save caller saved user registers and old return eip
     tf->esp -= 4;
@@ -176,11 +175,7 @@ void handle_alarm(struct trapframe *tf) {
     uint tmp = tf->esp;
     tf->esp -= 4;
     *(uint*)tf->esp = tmp; // jump back to sig return syscall
-    cprintf("return esp is %x *esp %x\n", tf->esp, *(uint*)tf->esp);
-    // after return from interrupt, first exec new code(save frame ...)
-    // then return to addr just above that, so we need a code in userspace to call
-    // kernel's sigreturn function, but how??
-    // not linux now, so we can execute in stack, so add syscall code just at esp
+//    cprintf("return esp is %x *esp %x\n", tf->esp, *(uint*)tf->esp);
     tf->eip = (uint)myproc()->alarmhandler; // set new eip
     myproc()->sighandling = 1; // no need lock here?
     return;
@@ -188,9 +183,9 @@ void handle_alarm(struct trapframe *tf) {
 
 int sys_sigreturn(void) {
     struct trapframe *tf = myproc()->tf;
+    tf->esp += 8;  // drop executed code 8byte on stack
     tf->eip = *(uint*)tf->esp;
     tf->esp += 4;
-    cprintf("begin return from signal, original eip is %x\n", tf->eip);
     tf->edx = *(uint*)tf->esp;
     tf->esp += 4;
     tf->ecx = *(uint*)tf->esp;
