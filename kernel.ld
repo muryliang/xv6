@@ -22,7 +22,7 @@ SECTIONS
 	}
 
 	/* Include debugging information in kernel memory */
-	.stab : {
+	.stab : AT(LOADADDR(.rodata) + SIZEOF(.rodata)) {
 		PROVIDE(__STAB_BEGIN__ = .);
 		*(.stab);
 		PROVIDE(__STAB_END__ = .);

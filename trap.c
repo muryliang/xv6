@@ -14,6 +14,9 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
+extern void handle_alarm(struct trapframe *tf); // used to handle alarm
+int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+
 void
 tvinit(void)
 {
@@ -54,6 +57,12 @@ trap(struct trapframe *tf)
       wakeup(&ticks);
       release(&tickslock);
     }
+
+    // handle alarm is current process has alarm set
+    if(myproc() != 0 && myproc()->alarmticks != 0 && (tf->cs & 3) == 3) { // timer int from user
+        handle_alarm(tf);
+    }
+
     lapiceoi();
     break;
   case T_IRQ0 + IRQ_IDE:
@@ -86,6 +95,25 @@ trap(struct trapframe *tf)
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("trap");
     }
+
+    // handle page fault for "alloc on access"
+    uint faddr = rcr2();
+    if (tf->trapno == T_PGFLT && rcr2() < myproc()->sz) { // check fault vaddr is in valid range
+        faddr = PGROUNDDOWN(faddr);
+        char *mem = kalloc();
+        if (mem) {
+            memset(mem, 0, PGSIZE);
+            if(mappages(myproc()->pgdir, (char*)faddr, PGSIZE, V2P(mem), PTE_W|PTE_U) == 0){
+                break;
+            } else{
+              cprintf("alloc for pg fault out of memory (2)\n");
+              kfree(mem);
+            }
+        } else {
+            cprintf("alloc physical mem fail\n");
+        }
+    }
+
     // In user space, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
