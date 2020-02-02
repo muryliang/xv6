@@ -373,6 +373,7 @@ static uint
 bmap(struct inode *ip, uint bn)
 {
   uint addr, *a;
+  uint quote, remainder;
   struct buf *bp;
 
   if(bn < NDIRECT){
@@ -390,6 +391,31 @@ bmap(struct inode *ip, uint bn)
     a = (uint*)bp->data;
     if((addr = a[bn]) == 0){
       a[bn] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+    return addr;
+  }
+  bn -= NINDIRECT;
+  
+  if(bn < NDBLINDIRECT) {
+    if((addr = ip->addrs[NDIRECT+1]) == 0)
+      ip->addrs[NDIRECT+1] = addr = balloc(ip->dev);
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    quote = bn / NINDIRECT;
+    remainder = bn % NINDIRECT;
+    // second dereference
+    if((addr = a[quote]) == 0) {
+      a[quote] = addr = balloc(ip->dev);
+      log_write(bp); // write on double indirect block
+    }
+    brelse(bp);
+
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    if((addr = a[remainder]) == 0){
+      a[remainder] = addr = balloc(ip->dev); // write on single indirect block dereferred from double
       log_write(bp);
     }
     brelse(bp);
