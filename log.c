@@ -47,6 +47,9 @@ struct log {
 };
 struct log log;
 
+static struct buf *logarr[LOGSIZE];
+static int from_commit = 0;
+
 static void recover_from_log(void);
 static void commit();
 
@@ -72,7 +75,13 @@ install_trans(void)
   int tail;
 
   for (tail = 0; tail < log.lh.n; tail++) {
-    struct buf *lbuf = bread(log.dev, log.start+tail+1); // read log block
+//    struct buf *lbuf = bread(log.dev, log.start+tail+1); // read log block
+    struct buf *lbuf;
+    if (from_commit) {
+        lbuf = logarr[tail];
+    } else {
+        lbuf = bread(log.dev, log.start+tail+1); // read log block
+    }
     struct buf *dbuf = bread(log.dev, log.lh.block[tail]); // read dst
     memmove(dbuf->data, lbuf->data, BSIZE);  // copy block to dst
     bwrite(dbuf);  // write dst to disk
@@ -183,15 +192,18 @@ write_log(void)
     struct buf *to = bread(log.dev, log.start+tail+1); // log block
     struct buf *from = bread(log.dev, log.lh.block[tail]); // cache block
     memmove(to->data, from->data, BSIZE);
+    if (from_commit) logarr[tail] = to;
     bwrite(to);  // write the log
     brelse(from);
-    brelse(to);
+//    brelse(to);
+    // copy ptr to logarr
   }
 }
 
 static void
 commit()
 {
+  from_commit = 1;
   if (log.lh.n > 0) {
     write_log();     // Write modified blocks from cache to log
     write_head();    // Write header to disk -- the real commit
@@ -199,6 +211,7 @@ commit()
     log.lh.n = 0;
     write_head();    // Erase the transaction from the log
   }
+  from_commit = 0;
 }
 
 // Caller has modified b->data and is done with the buffer.
